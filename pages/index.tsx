@@ -1,30 +1,40 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import Head from "next/head";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Container, ListGroup, Pagination } from "react-bootstrap";
 
-export default function Home() {
-  const [active, setActive] = useState(1);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
+export async function getStaticProps() {
   const Pokedex = require("pokedex-promise-v2");
   const P = new Pokedex();
+
+  const pokemonsList = await P.getGenerationByName("generation-i")
+    .then(function (response) {
+      // console.log(response.pokemon_species);
+      return response.pokemon_species;
+    })
+    .catch(function (error) {
+      console.log("There was an ERROR: ", error);
+      return error;
+    });
+
   const chunk = (arr, size) => {
     return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
       arr.slice(i * size, i * size + size)
     );
   };
 
-  useEffect(() => {
-    (async function () {
-      const pokemon = await P.getPokemonsList();
-      const paginated = chunk(pokemon.results, 250);
-      setData(paginated);
-      setLoading(false);
-    })();
-  }, []);
+  const paginated = chunk(pokemonsList, 51);
+
+  return {
+    props: {
+      paginated,
+    },
+  };
+}
+
+export default function Home({ paginated }) {
+  const [active, setActive] = useState(1);
 
   return (
     <div className="container">
@@ -38,11 +48,9 @@ export default function Home() {
           crossOrigin="anonymous"
         />
       </Head>
-
-      <main>
-        <Container className="p-5">
-          {loading && <div>Loading</div>}
-          {!loading && data && (
+      {paginated && (
+        <main>
+          <Container className="p-5">
             <>
               <Pagination>
                 <Pagination.First
@@ -57,7 +65,7 @@ export default function Home() {
                     setActive(active - 1);
                   }}
                 />
-                {data.map((item, index) => {
+                {paginated.map((item, index) => {
                   return (
                     <Pagination.Item
                       key={index}
@@ -71,21 +79,21 @@ export default function Home() {
                   );
                 })}
                 <Pagination.Next
-                  disabled={active === data.length}
+                  disabled={active === paginated.length}
                   onClick={() => {
                     setActive(active + 1);
                   }}
                 />
                 <Pagination.Last
-                  disabled={active === data.length}
+                  disabled={active === paginated.length}
                   onClick={() => {
-                    setActive(data.length);
+                    setActive(paginated.length);
                   }}
                 />
               </Pagination>
 
               <ListGroup>
-                {data[active - 1].map((item, index) => {
+                {paginated[active - 1].map((item, index) => {
                   return (
                     <Link href={`/${item.name}`} key={index}>
                       <a>
@@ -96,9 +104,9 @@ export default function Home() {
                 })}
               </ListGroup>
             </>
-          )}
-        </Container>
-      </main>
+          </Container>
+        </main>
+      )}
     </div>
   );
 }
